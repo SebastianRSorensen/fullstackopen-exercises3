@@ -1,6 +1,30 @@
 const express = require("express");
+const morgan = require("morgan");
 const app = express();
+
+/* const requestLogger = (request, response, next) => {
+  console.log("Method:", request.method);
+  console.log("Path:  ", request.path);
+  console.log("Body:  ", request.body);
+  console.log("---");
+  next();
+}; */
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
+
+morgan.token("content", (req) => {
+  return JSON.stringify(req.body.content);
+});
+
 app.use(express.json());
+/* app.use(requestLogger); */
+app.use(
+  morgan(
+    ":method :url :status :res[content-length] - :response-time ms :content"
+  )
+);
 
 let persons = [
   {
@@ -33,8 +57,8 @@ app.get("/info", (request, response) => {
   const result = persons.length;
   response.send(
     `<p>Phonebook has info for ${result} people
-    <br/>
-    ${new Date()}</p>`
+        <br/>
+        ${new Date()}</p>`
   );
 });
 
@@ -60,7 +84,7 @@ app.delete("/api/persons/:id", (request, response) => {
 
 const generateId = () => {
   /* const maxId = persons.length > 0 ? Math.max(...persons.map((n) => n.id)) : 0;
-  maxId + 1; */
+        maxId + 1; */
   return Math.floor(Math.random() * 100000);
 };
 
@@ -93,6 +117,8 @@ app.post("/api/persons", (request, response) => {
 
   response.json(person);
 });
+
+app.use(unknownEndpoint);
 
 const PORT = 3001;
 app.listen(PORT, () => {
