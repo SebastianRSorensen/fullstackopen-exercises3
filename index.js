@@ -94,15 +94,19 @@ app.delete("/api/persons/:id", (request, response, next) => {
 });
 
 app.put("/api/persons/:id", (request, response, next) => {
-  const body = request.body;
+  const { name, number } = request.body.content;
   const person = {
     content: {
-      name: body.content.name,
-      number: body.content.number,
+      name,
+      number,
     },
   };
 
-  Person.findByIdAndUpdate(request.params.id, person, { new: true })
+  Person.findByIdAndUpdate(request.params.id, person, {
+    new: true,
+    runValidators: true,
+    context: "query",
+  })
     .then((updatedPerson) => {
       response.json(updatedPerson);
     })
@@ -115,7 +119,7 @@ const generateId = () => {
   return Math.floor(Math.random() * 100000);
 };
 
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", (request, response, next) => {
   console.log("TRYING TO POST");
   const body = request.body;
 
@@ -126,28 +130,13 @@ app.post("/api/persons", (request, response) => {
       id: generateId() /* Kan egentlig slette denne nå?? */,
     },
   });
-  console.log(person);
 
-  if (persons.find((person) => person.name === body.content.name)) {
-    return response.status(400).json({
-      error: "name must be unique",
-    });
-  }
-  if (!body.content.number) {
-    return response.status(400).json({
-      error: "missing number",
-    });
-  }
-  if (!body.content.name) {
-    return response.status(400).json({
-      error: "missing name",
-    });
-  }
-  console.log("Should save at this point");
-
-  person.save().then((savedPerson) => {
-    response.json(savedPerson);
-  });
+  person
+    .save()
+    .then((savedPerson) => {
+      response.json(savedPerson);
+    })
+    .catch((error) => next(error));
 });
 
 const PORT = process.env.PORT;
@@ -156,11 +145,15 @@ app.listen(PORT, () => {
 });
 
 app.use(unknownEndpoint);
+
 const errorHandler = (error, request, response, next) => {
   console.error(error.message);
 
   if (error.name === "CastError") {
     return response.status(400).send({ error: "malformatted id" });
+  } else if (error.name === "ValidationError") {
+    console.log("error message: ", error.message);
+    return response.status(400).json({ error: error.message });
   }
 
   next(error);
